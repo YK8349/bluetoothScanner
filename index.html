@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Power Vision S1 Bluetooth Scanner</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>Power Vision S1 Bluetooth Scanner</h1>
+    <button id="scanButton">Scan for Devices</button>
+    <pre id="log"></pre>
+
+    <script>
+        const scanButton = document.getElementById('scanButton');
+        const logElement = document.getElementById('log');
+
+        scanButton.addEventListener('click', async () => {
+            log('Requesting Bluetooth device...');
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [] // We don't know the services yet, so we accept all
+                });
+
+                log(`Connecting to ${device.name}...`);
+                const server = await device.gatt.connect();
+
+                log('Discovering services...');
+                const services = await server.getPrimaryServices();
+
+                log(`Found ${services.length} services:`);
+                for (const service of services) {
+                    log(`> Service: ${service.uuid}`);
+                    const characteristics = await service.getCharacteristics();
+                    log(`  Found ${characteristics.length} characteristics:`);
+                    for (const characteristic of characteristics) {
+                        log(`    - Characteristic: ${characteristic.uuid}`);
+                        log(`      Properties: ${getProperties(characteristic)}`);
+                    }
+                }
+            } catch (error) {
+                log(`Error: ${error}`);
+            }
+        });
+
+        function log(message) {
+            console.log(message);
+            logElement.textContent += message + '\n';
+        }
+
+        function getProperties(characteristic) {
+            const properties = [];
+            if (characteristic.properties.broadcast) properties.push('BROADCAST');
+            if (characteristic.properties.read) properties.push('READ');
+            if (characteristic.properties.writeWithoutResponse) properties.push('WRITE WITHOUT RESPONSE');
+            if (characteristic.properties.write) properties.push('WRITE');
+            if (characteristic.properties.notify) properties.push('NOTIFY');
+            if (characteristic.properties.indicate) properties.push('INDICATE');
+            if (characteristic.properties.authenticatedSignedWrites) properties.push('AUTHENTICATED SIGNED WRITES');
+            return properties.join(', ');
+        }
+    </script>
+</body>
+</html>
