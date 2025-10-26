@@ -53,6 +53,8 @@
 
       <div id="mode-controls" style="margin-bottom: 12px;">
         <h2>⚙️ Mode & Calibration</h2>
+        <!-- HTML側 -->
+        <button id="releaseControlButton">🎮 手動モードに戻す（5方向ボタン有効化）</button>
         <div class="button-group">
             <button id="mode-follow-button">Follow</button>
             <button id="mode-pitch-button">Pitch Lock</button>
@@ -580,6 +582,28 @@ disconnectButton.addEventListener('click', () => {
       bluetoothDevice.gatt.disconnect();
     }, 300);
   }
+});
+
+// 制御権リリースコマンドを作成（5方向ボタンを使えるようにする）
+function buildReleaseControlCommand() {
+  const commandId = BLE_SET_INFORM_ID; // 既存の定数を利用
+  const payload = new ArrayBuffer(3);
+  const view = new DataView(payload);
+  view.setUint8(0, 37);       // 推定: "release control" コマンドID
+  view.setUint16(1, 0x0001, true); // データ部（固定値）
+  return buildCommand(commandId, payload);
+}
+
+// ボタンクリックで実行
+document.getElementById('releaseControlButton').addEventListener('click', async () => {
+  if (!gattCharacteristic) {
+    log('⚠️ 接続されていません');
+    return;
+  }
+  log('🎮 手動モードを要求中...');
+  const releaseCmd = buildReleaseControlCommand();
+  await sendCommand(releaseCmd, true);
+  log('✅ 手動モードへ切り替え完了（5方向ボタンが有効になります）');
 });
 
 /* =========================
