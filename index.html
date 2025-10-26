@@ -584,15 +584,17 @@ disconnectButton.addEventListener('click', () => {
   }
 });
 
-// 制御権リリースコマンドを作成（5方向ボタンを使えるようにする）
 function buildReleaseControlCommand() {
-  const commandId = BLE_SET_INFORM_ID; // 既存の定数を利用
-  const payload = new ArrayBuffer(3);
-  const view = new DataView(payload);
-  view.setUint8(0, 38);       // 推定: "release control" コマンドID
-  view.setUint16(1, 0x0001, true); // データ部（固定値）
-  return buildCommand(commandId, payload);
+  // S1のBLE制御プロトコルでは、ID=10 (BLE_SET_INFORM_ID) の中で制御状態を切り替える
+  const commandId = BLE_SET_INFORM_ID;
+  const payload = new Uint8Array([
+    0x25, // 推定コマンド: 「制御権リリース」 (PowerVision系のリリースコード)
+    0x01, 0x00 // データ領域（固定: 有効化フラグ）
+  ]);
+  return buildCommand(commandId, payload.buffer);
 }
+
+
 
 // ボタンクリックで実行
 document.getElementById('releaseControlButton').addEventListener('click', async () => {
@@ -600,10 +602,14 @@ document.getElementById('releaseControlButton').addEventListener('click', async 
     log('⚠️ 接続されていません');
     return;
   }
-  log('🎮 手動モードを要求中...');
-  const releaseCmd = buildReleaseControlCommand();
-  await sendCommand(releaseCmd, true);
-  log('✅ 手動モードへ切り替え完了（5方向ボタンが有効になります）');
+  log('🎮 手動モードに戻すコマンド送信中...');
+  try {
+    const cmd = buildReleaseControlCommand();
+    await sendCommand(cmd, true);
+    log('✅ 手動モードへ切り替え完了（本体5方向ボタンが使えます）');
+  } catch (e) {
+    log('❌ 手動モード切り替え失敗: ' + e);
+  }
 });
 
 /* =========================
