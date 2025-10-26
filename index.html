@@ -2,62 +2,73 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>Power Vision S1 Web Controller</title>
+  <title>Power Vision S1 Web Controller — Calibratable</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
     .container { display: flex; flex-direction: column; gap: 20px; }
     .control-group { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     h1, h2 { text-align: center; color: #333; }
-    button { padding: 12px 18px; font-size: 16px; cursor: pointer; border-radius: 6px; border: 1px solid transparent; transition: all 0.2s ease; }
+    button { padding: 10px 14px; font-size: 15px; cursor: pointer; border-radius: 6px; border: 1px solid transparent; transition: all 0.15s ease; }
     button:disabled { cursor: not-allowed; opacity: 0.5; }
     .button-group { display: flex; flex-wrap: wrap; gap: 10px; }
     #connection-status { font-weight: bold; padding: 5px 10px; border-radius: 5px; color: #fff; }
-    #log-area { width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 3px; padding: 5px; box-sizing: border-box; white-space: pre-wrap; overflow-y: scroll; background-color: #fafafa; }
+    #log-area { width: 100%; height: 160px; border: 1px solid #ccc; border-radius: 3px; padding: 5px; box-sizing: border-box; white-space: pre-wrap; overflow-y: scroll; background-color: #fafafa; }
     #slider-controls div { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
-    #slider-controls label { width: 50px; }
+    #slider-controls label { width: 60px; }
     #slider-controls input[type="range"] { flex-grow: 1; }
-    #slider-controls span { width: 40px; text-align: right; }
+    #slider-controls span { width: 50px; text-align: right; }
     #video-container { position: relative; width: 100%; max-width: 640px; margin: auto; }
     #video-feed, #tracking-canvas { width: 100%; height: auto; border-radius: 4px; }
-    #tracking-canvas { position: absolute; top: 0; left: 0; }
+    #tracking-canvas { position: absolute; top: 0; left: 0; pointer-events:none; }
+    .small { font-size: 0.9em; color: #555; }
+    .config { margin-top:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .config label { font-size:0.9em; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Power Vision S1 Web Controller</h1>
+    <h1>Power Vision S1 Web Controller (Calibratable)</h1>
 
     <div class="control-group">
-      <h2><span style="font-size: 1.2em;">📡</span> Connection</h2>
+      <h2>📡 Connection</h2>
       <button id="connect-button">Connect to S1 Device</button>
       <button id="disconnect-button" disabled>Disconnect</button>
       <p>Status: <span id="connection-status" style="background-color: red;">DISCONNECTED</span></p>
+      <div class="small">※ 接続後、必要に応じて下のキャリブレーション設定を調整してください。</div>
     </div>
 
-    <div class="control-group" id="main-controls" style="display: none;">
-      
+    <div class="control-group" id="main-controls" style="display:none;">
       <div id="tracking-controls" style="margin-bottom: 20px;">
-        <h2><span style="font-size: 1.2em;">📸</span> Face Tracking</h2>
+        <h2>📸 Face Tracking</h2>
         <div id="video-container">
             <video id="video-feed" playsinline autoplay muted></video>
             <canvas id="tracking-canvas"></canvas>
         </div>
-        <div class="button-group" style="margin-top: 15px;">
+        <div class="button-group" style="margin-top: 12px;">
             <button id="start-tracking-button">Start Tracking</button>
             <button id="stop-tracking-button" disabled>Stop Tracking</button>
         </div>
       </div>
 
-      <div id="mode-controls" style="margin-bottom: 20px;">
-        <h2><span style="font-size: 1.2em;">⚙️</span> Mode Selection</h2>
+      <div id="mode-controls" style="margin-bottom: 12px;">
+        <h2>⚙️ Mode & Calibration</h2>
         <div class="button-group">
-            <button id="mode-follow-button">Follow Mode</button>
+            <button id="mode-follow-button">Follow</button>
             <button id="mode-pitch-button">Pitch Lock</button>
-            <button id="mode-fpv-button">FPV Mode</button>
+            <button id="mode-fpv-button">FPV</button>
+            <button id="center-gimbal-button">Center Gimbal</button>
+        </div>
+        <div class="config">
+          <label><input type="checkbox" id="invert-pan"> Invert Pan</label>
+          <label><input type="checkbox" id="invert-tilt"> Invert Tilt</label>
+          <label><input type="checkbox" id="invert-roll"> Invert Roll</label>
+          <label>Scale (pan): <input type="number" id="scale-pan" value="1" step="0.1" style="width:80px;"></label>
+          <label>Scale (tilt): <input type="number" id="scale-tilt" value="1" step="0.1" style="width:80px;"></label>
         </div>
       </div>
 
-      <h2><span style="font-size: 1.2em;">🕹️</span> Angle Controls</h2>
+      <h2>🕹️ Angle Controls</h2>
       <div id="slider-controls">
         <div>
           <label for="pan-slider">Pan</label>
@@ -74,364 +85,490 @@
           <input type="range" id="roll-slider" min="-300" max="300" value="0">
           <span id="roll-value">0.0</span>°
         </div>
-        <button id="reset-position-button" style="margin-top: 15px;">Reset Position</button>
+        <button id="reset-position-button" style="margin-top: 12px;">Reset Position (Center)</button>
       </div>
     </div>
 
     <div class="control-group">
-      <h2><span style="font-size: 1.2em;">📋</span> Log</h2>
+      <h2>📋 Log</h2>
       <textarea id="log-area" readonly></textarea>
-      <button id="clear-log-button" style="margin-top: 10px;">Clear Log</button>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button id="clear-log-button">Clear Log</button>
+        <button id="download-log-button">Download Log</button>
+      </div>
     </div>
   </div>
 
 <script>
-    // --- Constants ---
-    const NORDIC_UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-    const NORDIC_UART_RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-    const NORDIC_UART_TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+/* =========================
+   CONFIG / CALIBRATION
+   ========================= */
+const CALIB = {
+  invertPan: false,
+  invertTilt: false,
+  invertRoll: false,
+  scalePan: 1.0,   // multiply on slider value -> device units; tune if direction/units differ
+  scaleTilt: 1.0,
+  heartbeatIntervalMs: 4000, // app heartbeat interval
+  sendCenterTwice: true // send center command then zero-position to ensure centering
+};
 
-    const BLE_SET_INFORM_ID = 10;
-    const BLE_PTZ_EXPECTED_POSTURE_ID = 12; // Velocity control
-    const BLE_TARGET_LOCATION_ID = 13;    // Position control
-    const BLE_APP_PAN_HEARTBEAT_ID = 16;
+/* =========================
+   BLE UUIDs & IDs (as before)
+   ========================= */
+const NORDIC_UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NORDIC_UART_RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const NORDIC_UART_TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
-    const BLE_START_1 = 0xEA;
-    const BLE_START_2 = 0x55;
-    const OPERATION_TYPE = 1;
-    const SET_FEEDBACK_STATE = 3;
-    const INFORM_SEND_ID = 7;
-    const INFORM_RECEIVE_ID = 1;
+const BLE_SET_INFORM_ID = 10;
+const BLE_PTZ_EXPECTED_POSTURE_ID = 12; // velocity control
+const BLE_TARGET_LOCATION_ID = 13;    // position control
+const BLE_APP_PAN_HEARTBEAT_ID = 16;
 
-    const HEARTBEAT_INTERVAL = 5000;
+const BLE_START_1 = 0xEA;
+const BLE_START_2 = 0x55;
+const OPERATION_TYPE = 1;
+const SET_FEEDBACK_STATE = 3;
+const INFORM_SEND_ID = 7;
+const INFORM_RECEIVE_ID = 1;
 
-    // --- UI Elements ---
-    const connectButton = document.getElementById('connect-button');
-    const disconnectButton = document.getElementById('disconnect-button');
-    const statusSpan = document.getElementById('connection-status');
-    const logArea = document.getElementById('log-area');
-    const clearLogButton = document.getElementById('clear-log-button');
-    const mainControls = document.getElementById('main-controls');
-    
-    const modeFollowButton = document.getElementById('mode-follow-button');
-    const modePitchButton = document.getElementById('mode-pitch-button');
-    const modeFpvButton = document.getElementById('mode-fpv-button');
+/* =========================
+   UI elements
+   ========================= */
+const connectButton = document.getElementById('connect-button');
+const disconnectButton = document.getElementById('disconnect-button');
+const statusSpan = document.getElementById('connection-status');
+const logArea = document.getElementById('log-area');
+const clearLogButton = document.getElementById('clear-log-button');
+const downloadLogButton = document.getElementById('download-log-button');
+const mainControls = document.getElementById('main-controls');
 
-    const panSlider = document.getElementById('pan-slider');
-    const tiltSlider = document.getElementById('tilt-slider');
-    const rollSlider = document.getElementById('roll-slider');
-    const panValue = document.getElementById('pan-value');
-    const tiltValue = document.getElementById('tilt-value');
-    const rollValue = document.getElementById('roll-value');
-    const resetPositionButton = document.getElementById('reset-position-button');
+const modeFollowButton = document.getElementById('mode-follow-button');
+const modePitchButton = document.getElementById('mode-pitch-button');
+const modeFpvButton = document.getElementById('mode-fpv-button');
+const centerGimbalButton = document.getElementById('center-gimbal-button');
 
-    const startTrackingButton = document.getElementById('start-tracking-button');
-    const stopTrackingButton = document.getElementById('stop-tracking-button');
-    const videoFeed = document.getElementById('video-feed');
-    const trackingCanvas = document.getElementById('tracking-canvas');
-    const canvasCtx = trackingCanvas.getContext('2d');
+const panSlider = document.getElementById('pan-slider');
+const tiltSlider = document.getElementById('tilt-slider');
+const rollSlider = document.getElementById('roll-slider');
+const panValue = document.getElementById('pan-value');
+const tiltValue = document.getElementById('tilt-value');
+const rollValue = document.getElementById('roll-value');
+const resetPositionButton = document.getElementById('reset-position-button');
 
-    // --- State ---
-    let bluetoothDevice = null;
-    let uartWriteChar = null;
-    let pos_tran_value_counter = 0;
-    let expected_posture_value_counter = 0;
-    let heartbeatTimer = null;
-    let trackingState = { stream: null, loopId: null, faceDetector: null };
+const startTrackingButton = document.getElementById('start-tracking-button');
+const stopTrackingButton = document.getElementById('stop-tracking-button');
+const videoFeed = document.getElementById('video-feed');
+const trackingCanvas = document.getElementById('tracking-canvas');
+const canvasCtx = trackingCanvas.getContext('2d');
 
-    // --- CRC-16/CCITT-FALSE Calculation ---
-    function crc16_ccitt_false(data) {
-        let crc = 0xFFFF;
-        const polynomial = 0x1021;
-        for (const byte of data) {
-            crc ^= byte << 8;
-            for (let i = 0; i < 8; i++) {
-                if (crc & 0x8000) { crc = (crc << 1) ^ polynomial; } else { crc <<= 1; }
-            }
-        }
-        return crc & 0xFFFF;
+const invertPanCheckbox = document.getElementById('invert-pan');
+const invertTiltCheckbox = document.getElementById('invert-tilt');
+const invertRollCheckbox = document.getElementById('invert-roll');
+const scalePanInput = document.getElementById('scale-pan');
+const scaleTiltInput = document.getElementById('scale-tilt');
+
+/* =========================
+   State
+   ========================= */
+let bluetoothDevice = null;
+let uartWriteChar = null;
+let heartbeatTimer = null;
+let trackingState = { stream: null, loopId: null, faceDetector: null };
+let pos_tran_value_counter = 0;
+let expected_posture_value_counter = 0;
+
+/* =========================
+   CRC-16/CCITT-FALSE
+   ========================= */
+function crc16_ccitt_false(data) {
+  let crc = 0xFFFF;
+  const poly = 0x1021;
+  for (let b of data) {
+    crc ^= (b << 8) & 0xFFFF;
+    for (let i = 0; i < 8; i++) {
+      if (crc & 0x8000) crc = ((crc << 1) ^ poly) & 0xFFFF;
+      else crc = (crc << 1) & 0xFFFF;
     }
+  }
+  return crc & 0xFFFF;
+}
 
-    // --- Command Building ---
-    function buildCommand(commandId, payload) {
-        const length = payload.byteLength + 8;
-        const header = new ArrayBuffer(6);
-        const headerView = new DataView(header);
-        headerView.setUint8(0, BLE_START_1);
-        headerView.setUint8(1, BLE_START_2);
-        headerView.setUint8(2, length);
-        headerView.setUint8(3, commandId);
-        const packedInfo = (OPERATION_TYPE << 0) | (SET_FEEDBACK_STATE << 4) | (INFORM_SEND_ID << 10) | (INFORM_RECEIVE_ID << 14);
-        headerView.setUint16(4, packedInfo, true);
-        const message = new Uint8Array(header.byteLength + payload.byteLength);
-        message.set(new Uint8Array(header), 0);
-        message.set(new Uint8Array(payload), header.byteLength);
-        const crcValue = crc16_ccitt_false(message);
-        const crcBytes = new ArrayBuffer(2);
-        new DataView(crcBytes).setUint16(0, crcValue, true);
-        const finalCommand = new Uint8Array(message.byteLength + crcBytes.byteLength);
-        finalCommand.set(message, 0);
-        finalCommand.set(new Uint8Array(crcBytes), message.byteLength);
-        return finalCommand;
-    }
+/* =========================
+   Command building (same framing, but with robust helpers)
+   ========================= */
+function buildCommand(commandId, payloadUint8) {
+  // payloadUint8: Uint8Array
+  const payloadLen = payloadUint8.length;
+  // Original used payload+8 as length — keep that behavior but guard.
+  const length = payloadLen + 8;
+  const header = new Uint8Array(6);
+  header[0] = BLE_START_1;
+  header[1] = BLE_START_2;
+  header[2] = length & 0xFF;
+  header[3] = commandId & 0xFF;
+  // packedInfo (2 bytes little-endian)
+  const packedInfo = (OPERATION_TYPE << 0) | (SET_FEEDBACK_STATE << 4) | (INFORM_SEND_ID << 10) | (INFORM_RECEIVE_ID << 14);
+  header[4] = packedInfo & 0xFF;
+  header[5] = (packedInfo >> 8) & 0xFF;
 
-    function buildParsePositionCommand(panAngle, tiltAngle, rollAngle) {
-        const commandId = BLE_TARGET_LOCATION_ID;
-        const payload = new ArrayBuffer(12);
-        const view = new DataView(payload);
-        view.setUint8(0, pos_tran_value_counter); pos_tran_value_counter = (pos_tran_value_counter + 1) % 256;
-        view.setInt16(1, panAngle, true);
-        view.setInt16(3, tiltAngle, true);
-        view.setInt16(5, rollAngle, true);
-        view.setInt16(7, 0, true);
-        view.setUint8(9, 0); view.setUint8(10, 0); view.setUint8(11, 0);
-        return buildCommand(commandId, payload);
-    }
+  const message = new Uint8Array(header.length + payloadLen);
+  message.set(header, 0);
+  message.set(payloadUint8, header.length);
 
-    function buildPanExpectedPostureCommand(panSpeed, tiltSpeed, rollSpeed) {
-        const commandId = BLE_PTZ_EXPECTED_POSTURE_ID;
-        const payload = new ArrayBuffer(16);
-        const view = new DataView(payload);
-        view.setUint8(0, expected_posture_value_counter); expected_posture_value_counter = (expected_posture_value_counter + 1) % 256;
-        const packedFlags = (0 << 0) | (0 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
-        view.setUint8(1, packedFlags);
-        view.setInt16(2, 0, true); view.setInt16(4, 0, true); view.setInt16(6, 0, true);
-        view.setInt16(8, rollSpeed, true);
-        view.setInt16(10, tiltSpeed, true);
-        view.setInt16(12, panSpeed, true);
-        view.setInt16(14, 0, true);
-        return buildCommand(commandId, payload);
-    }
+  const crc = crc16_ccitt_false(message);
+  const finalCmd = new Uint8Array(message.length + 2);
+  finalCmd.set(message, 0);
+  finalCmd[message.length] = crc & 0xFF;
+  finalCmd[message.length + 1] = (crc >> 8) & 0xFF; // little-endian
 
-    function buildCenterGimbalCommand() {
-        const commandId = BLE_SET_INFORM_ID;
-        const payload = new ArrayBuffer(3);
-        const view = new DataView(payload);
-        view.setUint8(0, 36);
-        view.setUint16(1, 0x0001, true);
-        return buildCommand(commandId, payload);
-    }
-    
-    function buildSetGimbalModeCommand(mode) {
-        const commandId = BLE_SET_INFORM_ID;
-        const payload = new ArrayBuffer(5);
-        const view = new DataView(payload);
-        view.setUint8(0, 12);
-        view.setUint32(1, mode, true);
-        return buildCommand(commandId, payload);
-    }
+  return finalCmd;
+}
 
-    function buildAppToPanCommand() {
-        const commandId = BLE_APP_PAN_HEARTBEAT_ID;
-        const payload = new ArrayBuffer(12);
-        const view = new DataView(payload);
-        view.setUint32(0, Date.now(), true);
-        view.setUint16(4, 0, true);
-        view.setUint16(6, 0, true);
-        view.setUint32(8, 0, true);
-        return buildCommand(commandId, payload);
-    }
+function buildParsePositionCommand(panAngleRaw, tiltAngleRaw, rollAngleRaw) {
+  // panAngleRaw etc are integers in 'device units' (we will feed scaled & inverted values)
+  const commandId = BLE_TARGET_LOCATION_ID;
+  const payload = new Uint8Array(12);
+  payload[0] = pos_tran_value_counter & 0xFF;
+  pos_tran_value_counter = (pos_tran_value_counter + 1) & 0xFF;
+  // setInt16 little-endian into bytes 1-2,3-4,5-6
+  payload[1] = panAngleRaw & 0xFF;
+  payload[2] = (panAngleRaw >> 8) & 0xFF;
+  payload[3] = tiltAngleRaw & 0xFF;
+  payload[4] = (tiltAngleRaw >> 8) & 0xFF;
+  payload[5] = rollAngleRaw & 0xFF;
+  payload[6] = (rollAngleRaw >> 8) & 0xFF;
+  // rest zeros (already zeroed)
+  return buildCommand(commandId, payload);
+}
 
-    // --- BLE Send/Receive ---
-    async function sendCommand(commandBytes, logIt = false) {
-        if (!uartWriteChar) return;
-        try {
-            await uartWriteChar.writeValueWithoutResponse(commandBytes);
-            if(logIt) log(`Sent: ${Array.from(commandBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`);
-        } catch (err) {
-            log(`Write Error: ${err}`);
-        }
-    }
+function buildPanExpectedPostureCommand(panSpeed, tiltSpeed, rollSpeed) {
+  const commandId = BLE_PTZ_EXPECTED_POSTURE_ID;
+  const payload = new Uint8Array(16);
+  payload[0] = expected_posture_value_counter & 0xFF;
+  expected_posture_value_counter = (expected_posture_value_counter + 1) & 0xFF;
+  const packedFlags = (0 << 0) | (0 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
+  payload[1] = packedFlags & 0xFF;
+  // bytes 2-7 zeros (already)
+  // set rollSpeed at offset 8 (int16 le)
+  payload[8] = rollSpeed & 0xFF;
+  payload[9] = (rollSpeed >> 8) & 0xFF;
+  payload[10] = tiltSpeed & 0xFF;
+  payload[11] = (tiltSpeed >> 8) & 0xFF;
+  payload[12] = panSpeed & 0xFF;
+  payload[13] = (panSpeed >> 8) & 0xFF;
+  // last int16 zero stays
+  return buildCommand(commandId, payload);
+}
 
-    // --- Connection Logic ---
-    connectButton.addEventListener('click', async () => {
-        log('Requesting device...');
-        try {
-            bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'S1' }], optionalServices: [NORDIC_UART_SERVICE_UUID] });
-            bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
-            log('Connecting to GATT server...');
-            const server = await bluetoothDevice.gatt.connect();
-            log('Getting UART service...');
-            const service = await server.getPrimaryService(NORDIC_UART_SERVICE_UUID);
-            log('Getting characteristics...');
-            uartWriteChar = await service.getCharacteristic(NORDIC_UART_RX_CHARACTERISTIC_UUID);
-            const uartNotifyChar = await service.getCharacteristic(NORDIC_UART_TX_CHARACTERISTIC_UUID);
-            log('Starting notifications...');
-            await uartNotifyChar.startNotifications();
-            uartNotifyChar.addEventListener('characteristicvaluechanged', (event) => {
-                const value = event.target.value;
-                let hex = Array.from(new Uint8Array(value.buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-                log(`Received: ${hex}`);
-            });
-            updateUIForConnection();
-            log('Device connected. Select a mode to start.');
-            log('Starting heartbeat...');
-            heartbeatTimer = setInterval(() => { sendCommand(buildAppToPanCommand()); }, HEARTBEAT_INTERVAL);
-        } catch (err) {
-            log(`Connection Error: ${err}`);
-            if (bluetoothDevice && bluetoothDevice.gatt.connected) bluetoothDevice.gatt.disconnect();
-        }
+function buildCenterGimbalCommand() {
+  const commandId = BLE_SET_INFORM_ID;
+  const payload = new Uint8Array(3);
+  payload[0] = 36;
+  payload[1] = 0x01 & 0xFF;
+  payload[2] = (0x01 >> 8) & 0xFF;
+  return buildCommand(commandId, payload);
+}
+
+function buildSetGimbalModeCommand(mode) {
+  const commandId = BLE_SET_INFORM_ID;
+  // payload 5 bytes in original
+  const payload = new Uint8Array(5);
+  payload[0] = 12;
+  // 4-byte mode (little-endian)
+  payload[1] = mode & 0xFF;
+  payload[2] = (mode >> 8) & 0xFF;
+  payload[3] = (mode >> 16) & 0xFF;
+  payload[4] = (mode >> 24) & 0xFF;
+  return buildCommand(commandId, payload);
+}
+
+function buildAppToPanCommand() {
+  const commandId = BLE_APP_PAN_HEARTBEAT_ID;
+  const payload = new Uint8Array(12);
+  const t = Date.now() & 0xFFFFFFFF;
+  payload[0] = t & 0xFF; payload[1] = (t>>8)&0xFF; payload[2] = (t>>16)&0xFF; payload[3] = (t>>24)&0xFF;
+  // rest zeros
+  return buildCommand(commandId, payload);
+}
+
+/* =========================
+   BLE send helper with fallback & logs
+   ========================= */
+async function sendCommandBytes(bytes, logIt=false) {
+  if (!uartWriteChar) {
+    log('Cannot send: write characteristic not available.');
+    return false;
+  }
+  try {
+    // Prefer without response (faster) but try both
+    if (uartWriteChar.properties && uartWriteChar.properties.writeWithoutResponse) {
+      await uartWriteChar.writeValueWithoutResponse(bytes);
+    } else {
+      // Fallback
+      await uartWriteChar.writeValue(bytes.buffer ? bytes.buffer : bytes);
+    }
+    if (logIt) log(`Sent: ${Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('')}`);
+    return true;
+  } catch (err) {
+    log(`Write error (attempting fallback): ${err}`);
+    // try fallback writeValue if available
+    try {
+      await uartWriteChar.writeValue(bytes.buffer ? bytes.buffer : bytes);
+      if (logIt) log(`Fallback Sent: ${Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('')}`);
+      return true;
+    } catch (err2) {
+      log(`Final write failed: ${err2}`);
+      console.error(err2);
+      return false;
+    }
+  }
+}
+
+/* =========================
+   High level sending wrappers (convenience)
+   ========================= */
+async function sendPosition(pan, tilt, roll, debug=false) {
+  // apply calibration: invert & scale
+  const panRaw = Math.round((CALIB.invertPan ? -1 : 1) * pan * CALIB.scalePan);
+  const tiltRaw = Math.round((CALIB.invertTilt ? -1 : 1) * tilt * CALIB.scaleTilt);
+  const rollRaw = Math.round((CALIB.invertRoll ? -1 : 1) * roll * CALIB.scaleRoll || roll); // keep safe
+  const cmd = buildParsePositionCommand(panRaw, tiltRaw, rollRaw);
+  return await sendCommandBytes(cmd, debug);
+}
+
+async function sendVelocity(panSpeed, tiltSpeed, rollSpeed, debug=false) {
+  // apply sign flips for velocity too
+  const p = Math.round((CALIB.invertPan ? -1 : 1) * panSpeed * CALIB.scalePan);
+  const t = Math.round((CALIB.invertTilt ? -1 : 1) * tiltSpeed * CALIB.scaleTilt);
+  const r = Math.round((CALIB.invertRoll ? -1 : 1) * rollSpeed * (CALIB.scaleRoll || 1));
+  const cmd = buildPanExpectedPostureCommand(p, t, r);
+  return await sendCommandBytes(cmd, debug);
+}
+
+/* =========================
+   Connection logic
+   ========================= */
+connectButton.addEventListener('click', async () => {
+  log('Requesting device...');
+  try {
+    bluetoothDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'S1' }],
+      optionalServices: [NORDIC_UART_SERVICE_UUID]
     });
-
-    disconnectButton.addEventListener('click', () => {
-        if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-            log('Disconnecting...');
-            stopTracking();
-            bluetoothDevice.gatt.disconnect();
-        }
+    bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+    log('Connecting to GATT server...');
+    const server = await bluetoothDevice.gatt.connect();
+    log('Getting UART service...');
+    const service = await server.getPrimaryService(NORDIC_UART_SERVICE_UUID);
+    log('Getting characteristics...');
+    uartWriteChar = await service.getCharacteristic(NORDIC_UART_RX_CHARACTERISTIC_UUID);
+    const uartNotifyChar = await service.getCharacteristic(NORDIC_UART_TX_CHARACTERISTIC_UUID);
+    log('Starting notifications...');
+    await uartNotifyChar.startNotifications();
+    uartNotifyChar.addEventListener('characteristicvaluechanged', (ev) => {
+      const v = ev.target.value;
+      const hex = Array.from(new Uint8Array(v.buffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+      log(`Received: ${hex}`);
     });
+    updateUIForConnection();
+    log('Device connected.');
+    // start heartbeat (send a few quickly then continue at interval)
+    clearInterval(heartbeatTimer);
+    let first = 0;
+    // ping 3 times quickly so device knows an app is here
+    const quickPing = setInterval(()=> {
+      sendCommandBytes(buildAppToPanCommand());
+      first++;
+      if (first>=3) clearInterval(quickPing);
+    }, 200);
+    heartbeatTimer = setInterval(()=> { sendCommandBytes(buildAppToPanCommand()); }, CALIB.heartbeatIntervalMs);
+  } catch (err) {
+    log(`Connection Error: ${err}`);
+    if (bluetoothDevice && bluetoothDevice.gatt.connected) bluetoothDevice.gatt.disconnect();
+  }
+});
 
-    function onDisconnected() {
-        log('Device disconnected.');
-        if (heartbeatTimer) clearInterval(heartbeatTimer);
-        heartbeatTimer = null;
-        stopTracking();
-        updateUIForDisconnection();
-        uartWriteChar = null;
-        bluetoothDevice = null;
-    }
+disconnectButton.addEventListener('click', () => {
+  if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+    log('Disconnecting...');
+    stopTracking();
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    // try to restore center on disconnect
+    sendCommandBytes(buildCenterGimbalCommand());
+    bluetoothDevice.gatt.disconnect();
+  }
+});
 
-    // --- Face Tracking Logic ---
-    async function startTracking() {
-        if (!('FaceDetector' in window)) {
-            log('Face Detector API not supported in this browser. Try Chrome.');
-            return;
-        }
-        try {
-            trackingState.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } });
-            videoFeed.srcObject = trackingState.stream;
-            await videoFeed.play();
+function onDisconnected() {
+  log('Device disconnected.');
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+  stopTracking();
+  updateUIForDisconnection();
+  uartWriteChar = null;
+  bluetoothDevice = null;
+}
 
-            trackingCanvas.width = videoFeed.videoWidth;
-            trackingCanvas.height = videoFeed.videoHeight;
-            trackingState.faceDetector = new FaceDetector({ fastMode: true });
-            
-            startTrackingButton.disabled = true;
-            stopTrackingButton.disabled = false;
-            log('Face tracking started.');
-            trackingState.loopId = requestAnimationFrame(trackingLoop);
-        } catch (err) {
-            log(`Camera Error: ${err.name} - ${err.message}`);
-        }
-    }
+/* =========================
+   Tracking code (P-controller) — with sign handling and clamping
+   ========================= */
+async function startTracking() {
+  if (!('FaceDetector' in window)) {
+    log('Face Detector API not supported in this browser. Try Chrome.');
+    return;
+  }
+  try {
+    trackingState.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } });
+    videoFeed.srcObject = trackingState.stream;
+    await videoFeed.play();
+    trackingCanvas.width = videoFeed.videoWidth;
+    trackingCanvas.height = videoFeed.videoHeight;
+    trackingState.faceDetector = new FaceDetector({ fastMode: true });
+    startTrackingButton.disabled = true; stopTrackingButton.disabled = false;
+    log('Face tracking started.');
+    trackingState.loopId = requestAnimationFrame(trackingLoop);
+  } catch (err) {
+    log(`Camera error: ${err}`);
+  }
+}
 
-    function stopTracking() {
-        if (trackingState.loopId) cancelAnimationFrame(trackingState.loopId);
-        if (trackingState.stream) {
-            trackingState.stream.getTracks().forEach(track => track.stop());
-        }
-        videoFeed.srcObject = null;
-        canvasCtx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
-        startTrackingButton.disabled = false;
-        stopTrackingButton.disabled = true;
-        trackingState = { stream: null, loopId: null, faceDetector: null };
-        log('Face tracking stopped.');
-    }
+function stopTracking() {
+  if (trackingState.loopId) cancelAnimationFrame(trackingState.loopId);
+  if (trackingState.stream) trackingState.stream.getTracks().forEach(t => t.stop());
+  videoFeed.srcObject = null;
+  canvasCtx.clearRect(0,0,trackingCanvas.width,trackingCanvas.height);
+  startTrackingButton.disabled = false; stopTrackingButton.disabled = true;
+  trackingState = { stream: null, loopId: null, faceDetector: null };
+  log('Face tracking stopped.');
+}
 
-    async function trackingLoop() {
-        if (!trackingState.faceDetector) return;
+async function trackingLoop() {
+  if (!trackingState.faceDetector) return;
+  const faces = await trackingState.faceDetector.detect(videoFeed);
+  canvasCtx.clearRect(0,0,trackingCanvas.width,trackingCanvas.height);
+  if (faces.length > 0) {
+    const face = faces.reduce((a,b)=> a.boundingBox.width>b.boundingBox.width? a:b);
+    const box = face.boundingBox;
+    canvasCtx.strokeStyle='lime'; canvasCtx.lineWidth=2;
+    canvasCtx.strokeRect(box.x, box.y, box.width, box.height);
+    const centerX = videoFeed.videoWidth/2, centerY = videoFeed.videoHeight/2;
+    const faceCenterX = box.x + box.width/2, faceCenterY = box.y + box.height/2;
+    const dx = faceCenterX - centerX, dy = faceCenterY - centerY;
+    // P gains - tuneable here or could be UI controlled
+    let P_GAIN_PAN =  -5; // negative means move left when face is on right; invertable by CALIB.invertPan
+    let P_GAIN_TILT =  5;
+    // Respect invert flag by flipping sign of computed speeds (already handled in sendVelocity via CALIB flags)
+    let panSpeed = Math.trunc(dx * P_GAIN_PAN);
+    let tiltSpeed = Math.trunc(dy * P_GAIN_TILT);
+    const MAX_SPEED = 2000;
+    panSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, panSpeed));
+    tiltSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, tiltSpeed));
+    // send velocity-style command for smooth following
+    await sendVelocity(panSpeed, tiltSpeed, 0, true);
+  } else {
+    await sendVelocity(0,0,0, true);
+  }
+  trackingState.loopId = requestAnimationFrame(trackingLoop);
+}
 
-        const faces = await trackingState.faceDetector.detect(videoFeed);
-        canvasCtx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
+/* =========================
+   Manual sliders -> position commands
+   ========================= */
+function updateSlidersToDevice() {
+  const pan = parseInt(panSlider.value,10);
+  const tilt = parseInt(tiltSlider.value,10);
+  const roll = parseInt(rollSlider.value,10);
+  panValue.textContent = (pan/10).toFixed(1);
+  tiltValue.textContent = (tilt/10).toFixed(1);
+  rollValue.textContent = (roll/10).toFixed(1);
+  // Apply user calibration values from inputs dynamically
+  CALIB.invertPan = invertPanCheckbox.checked;
+  CALIB.invertTilt = invertTiltCheckbox.checked;
+  CALIB.invertRoll = invertRollCheckbox.checked;
+  CALIB.scalePan = parseFloat(scalePanInput.value) || 1.0;
+  CALIB.scaleTilt = parseFloat(scaleTiltInput.value) || 1.0;
+  // sliders appear to be in tenths of degree => pass raw integer values (as original code did)
+  sendPosition(pan, tilt, roll, true);
+}
 
-        if (faces.length > 0) {
-            // Find the largest face
-            const face = faces.reduce((a, b) => a.boundingBox.width > b.boundingBox.width ? a : b);
-            const box = face.boundingBox;
+panSlider.addEventListener('input', updateSlidersToDevice);
+tiltSlider.addEventListener('input', updateSlidersToDevice);
+rollSlider.addEventListener('input', updateSlidersToDevice);
 
-            // Draw bounding box
-            canvasCtx.strokeStyle = 'lime';
-            canvasCtx.lineWidth = 2;
-            canvasCtx.strokeRect(box.x, box.y, box.width, box.height);
+/* =========================
+   Reset / Center handling
+   ========================= */
+resetPositionButton.addEventListener('click', async () => {
+  log('Resetting position (center)...');
+  // Send center command then zero coords to be robust
+  if (CALIB.sendCenterTwice) {
+    await sendCommandBytes(buildCenterGimbalCommand(), true);
+    await new Promise(r=>setTimeout(r,120)); // small delay
+    await sendPosition(0,0,0,true);
+  } else {
+    await sendPosition(0,0,0,true);
+  }
+  panSlider.value = 0; tiltSlider.value = 0; rollSlider.value = 0;
+  panValue.textContent='0.0'; tiltValue.textContent='0.0'; rollValue.textContent='0.0';
+});
 
-            // Control logic
-            const centerX = videoFeed.videoWidth / 2;
-            const centerY = videoFeed.videoHeight / 2;
-            const faceCenterX = box.x + box.width / 2;
-            const faceCenterY = box.y + box.height / 2;
+centerGimbalButton.addEventListener('click', async () => {
+  log('Send center gimbal command');
+  await sendCommandBytes(buildCenterGimbalCommand(), true);
+});
 
-            const dx = faceCenterX - centerX;
-            const dy = faceCenterY - centerY;
+/* =========================
+   Mode buttons
+   ========================= */
+modeFollowButton.addEventListener('click', ()=> { log('Set mode Follow'); sendCommandBytes(buildSetGimbalModeCommand(0), true); });
+modePitchButton.addEventListener('click', ()=> { log('Set mode Pitch Lock'); sendCommandBytes(buildSetGimbalModeCommand(1), true); });
+modeFpvButton.addEventListener('click', ()=> { log('Set mode FPV'); sendCommandBytes(buildSetGimbalModeCommand(2), true); });
 
-            // Proportional control (P-controller)
-            const P_GAIN_PAN = -5; // Negative gain to move left when face is on the right
-            const P_GAIN_TILT = 5; // Positive gain to move up when face is below center
-            
-            let panSpeed = Math.trunc(dx * P_GAIN_PAN);
-            let tiltSpeed = Math.trunc(dy * P_GAIN_TILT);
+/* =========================
+   Tracking buttons
+   ========================= */
+startTrackingButton.addEventListener('click', startTracking);
+stopTrackingButton.addEventListener('click', stopTracking);
 
-            // Clamp speeds to a reasonable range
-            const MAX_SPEED = 2000;
-            panSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, panSpeed));
-            tiltSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, tiltSpeed));
+/* =========================
+   UI & logging utilities
+   ========================= */
+clearLogButton.addEventListener('click', ()=> logArea.value='');
+downloadLogButton.addEventListener('click', ()=> {
+  const blob = new Blob([logArea.value], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 's1_log.txt'; a.click();
+  URL.revokeObjectURL(url);
+});
 
-            const command = buildPanExpectedPostureCommand(panSpeed, tiltSpeed, 0);
-            sendCommand(command);
+function updateUIForConnection() {
+  statusSpan.textContent='CONNECTED'; statusSpan.style.backgroundColor='#28a745';
+  connectButton.disabled = true; disconnectButton.disabled = false;
+  mainControls.style.display = 'block';
+}
 
-        } else {
-            // No face detected, stop movement
-            const command = buildPanExpectedPostureCommand(0, 0, 0);
-            sendCommand(command);
-        }
+function updateUIForDisconnection() {
+  statusSpan.textContent='DISCONNECTED'; statusSpan.style.backgroundColor='#dc3545';
+  connectButton.disabled=false; disconnectButton.disabled=true;
+  mainControls.style.display = 'none';
+}
 
-        trackingState.loopId = requestAnimationFrame(trackingLoop);
-    }
+function log(msg) {
+  const ts = new Date().toLocaleTimeString();
+  logArea.value += `[${ts}] ${msg}\n`;
+  logArea.scrollTop = logArea.scrollHeight;
+  console.log(msg);
+}
 
-    startTrackingButton.addEventListener('click', startTracking);
-    stopTrackingButton.addEventListener('click', stopTracking);
-
-    // --- Manual Control Logic ---
-    function onSliderChange() {
-        const pan = parseInt(panSlider.value, 10);
-        const tilt = parseInt(tiltSlider.value, 10);
-        const roll = parseInt(rollSlider.value, 10);
-        panValue.textContent = (pan / 10).toFixed(1);
-        tiltValue.textContent = (tilt / 10).toFixed(1);
-        rollValue.textContent = (roll / 10).toFixed(1);
-        const command = buildParsePositionCommand(pan, tilt, roll);
-        sendCommand(command);
-    }
-
-    panSlider.addEventListener('input', onSliderChange);
-    tiltSlider.addEventListener('input', onSliderChange);
-    rollSlider.addEventListener('input', onSliderChange);
-
-    resetPositionButton.addEventListener('click', () => {
-        log('Sending Center Gimbal command...');
-        sendCommand(buildCenterGimbalCommand(), true);
-        panSlider.value = 0; tiltSlider.value = 0; rollSlider.value = 0;
-        panValue.textContent = '0.0'; tiltValue.textContent = '0.0'; rollValue.textContent = '0.0';
-    });
-
-    modeFollowButton.addEventListener('click', () => { log('Setting mode to Follow (0)'); sendCommand(buildSetGimbalModeCommand(0), true); });
-    modePitchButton.addEventListener('click', () => { log('Setting mode to Pitch Lock (1)'); sendCommand(buildSetGimbalModeCommand(1), true); });
-    modeFpvButton.addEventListener('click', () => { log('Setting mode to FPV (2)'); sendCommand(buildSetGimbalModeCommand(2), true); });
-
-    // --- UI & Logging ---
-    clearLogButton.addEventListener('click', () => { logArea.value = ''; });
-
-    function updateUIForConnection() {
-        statusSpan.textContent = 'CONNECTED';
-        statusSpan.style.backgroundColor = '#28a745';
-        connectButton.disabled = true;
-        disconnectButton.disabled = false;
-        mainControls.style.display = 'block';
-    }
-
-    function updateUIForDisconnection() {
-        statusSpan.textContent = 'DISCONNECTED';
-        statusSpan.style.backgroundColor = '#dc3545';
-        connectButton.disabled = false;
-        disconnectButton.disabled = true;
-        mainControls.style.display = 'none';
-    }
-
-    function log(msg) {
-        const ts = new Date().toLocaleTimeString();
-        logArea.value += `[${ts}] ${msg}\n`;
-        logArea.scrollTop = logArea.scrollHeight;
-        console.log(msg);
-    }
+/* =========================
+   Init UI from CALIB
+   ========================= */
+invertPanCheckbox.checked = CALIB.invertPan;
+invertTiltCheckbox.checked = CALIB.invertTilt;
+invertRollCheckbox.checked = CALIB.invertRoll;
+scalePanInput.value = CALIB.scalePan;
+scaleTiltInput.value = CALIB.scaleTilt;
 </script>
 </body>
 </html>
