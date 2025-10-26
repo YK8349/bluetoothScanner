@@ -303,8 +303,8 @@
         cancelAllPressTimers();
         log(`Press ended: ${activeDirection}`);
         activeDirection = null;
-        const stopCommand = buildPanExpectedPostureCommand(0, 0, 0);
-        sendCommand(stopCommand);
+        // const stopCommand = buildPanExpectedPostureCommand(0, 0, 0);
+        // sendCommand(stopCommand);
     }
     
     function sendMovementCommand(direction) {
@@ -312,8 +312,8 @@
         switch (direction) {
             case 'up':    tilt = SPEED;  break;
             case 'down':  tilt = -SPEED; break;
-            case 'left':  pan = -SPEED;  break;
-            case 'right': pan = SPEED;   break;
+            case 'left':  pan = SPEED;  break;
+            case 'right': pan = -SPEED;   break;
         }
         const command = buildPanExpectedPostureCommand(pan, tilt, 0);
         sendCommand(command);
@@ -339,7 +339,7 @@
     document.getElementById('center-button').addEventListener('click', () => log("Center command not implemented."));
     document.getElementById('record-button').addEventListener('click', () => log("Record command not implemented."));
     document.getElementById('orientation-button').addEventListener('click', () => log("Orientation command not implemented."));
-    document.getElementById('reset-button').addEventListener('click', () => log("Reset command not implemented."));
+    document.getElementById('reset-button').addEventListener('click', () => buildPanExpectedPostureCommand(0, 0, 0));
     document.getElementById('power-button').addEventListener('click', () => log("Power command not implemented."));
     document.getElementById('zoom-in-button').addEventListener('click', () => log("Zoom In command not implemented."));
     document.getElementById('zoom-out-button').addEventListener('click', () => log("Zoom Out command not implemented."));
