@@ -2,36 +2,25 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>Power Vision S1 Web Controller — Fixed</title>
+  <title>Power Vision S1 Web Controller</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    /* （省略せずそのまま使えるように元のスタイルを保持） */
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
     .container { display: flex; flex-direction: column; gap: 20px; }
     .control-group { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     h1, h2 { text-align: center; color: #333; }
     button { padding: 12px 18px; font-size: 16px; cursor: pointer; border-radius: 6px; border: 1px solid transparent; transition: all 0.2s ease; }
     button:disabled { cursor: not-allowed; opacity: 0.5; }
+    .button-group { display: flex; flex-wrap: wrap; gap: 10px; }
     #connection-status { font-weight: bold; padding: 5px 10px; border-radius: 5px; color: #fff; }
     #log-area { width: 100%; height: 150px; border: 1px solid #ccc; border-radius: 3px; padding: 5px; box-sizing: border-box; white-space: pre-wrap; overflow-y: scroll; background-color: #fafafa; }
-    #connect-button { background-color: #007bff; color: white; border-color: #007bff; }
-    #connect-button:hover:not(:disabled) { background-color: #0056b3; }
-    #disconnect-button { background-color: #dc3545; color: white; border-color: #dc3545; }
-    #disconnect-button:hover:not(:disabled) { background-color: #c82333; }
-    .controls-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; justify-items: center; }
-    .d-pad { grid-column: 1 / 2; display: grid; grid-template-areas: ". up ." "left center right" ". down ."; width: 150px; height: 150px; }
-    .d-pad button { width: 50px; height: 50px; padding: 0; display: flex; justify-content: center; align-items: center; font-size: 24px; background-color: #5a6268; color: white; }
-    .d-pad button:hover:not(:disabled) { background-color: #4a5056; }
-    #up-button { grid-area: up; }
-    #left-button { grid-area: left; }
-    #right-button { grid-area: right; }
-    #down-button { grid-area: down; }
-    .action-buttons { grid-column: 2 / 3; display: flex; flex-direction: column; gap: 15px; justify-content: center; }
-    .zoom-buttons { grid-column: 3 / 4; display: flex; flex-direction: column; gap: 15px; justify-content: center; }
-    .action-buttons button, .zoom-buttons button { width: 150px; background-color: #28a745; color: white; }
-    .action-buttons button:hover:not(:disabled), .zoom-buttons button:hover:not(:disabled) { background-color: #218838; }
-    #power-button { background-color: #ffc107; color: #212529; }
-    #power-button:hover:not(:disabled) { background-color: #e0a800; }
+    #slider-controls div { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+    #slider-controls label { width: 50px; }
+    #slider-controls input[type="range"] { flex-grow: 1; }
+    #slider-controls span { width: 40px; text-align: right; }
+    #video-container { position: relative; width: 100%; max-width: 640px; margin: auto; }
+    #video-feed, #tracking-canvas { width: 100%; height: auto; border-radius: 4px; }
+    #tracking-canvas { position: absolute; top: 0; left: 0; }
   </style>
 </head>
 <body>
@@ -47,9 +36,20 @@
 
     <div class="control-group" id="main-controls" style="display: none;">
       
+      <div id="tracking-controls" style="margin-bottom: 20px;">
+        <h2><span style="font-size: 1.2em;">📸</span> Face Tracking</h2>
+        <div id="video-container">
+            <video id="video-feed" playsinline autoplay muted></video>
+            <canvas id="tracking-canvas"></canvas>
+        </div>
+        <div class="button-group" style="margin-top: 15px;">
+            <button id="start-tracking-button">Start Tracking</button>
+            <button id="stop-tracking-button" disabled>Stop Tracking</button>
+        </div>
+      </div>
+
       <div id="mode-controls" style="margin-bottom: 20px;">
         <h2><span style="font-size: 1.2em;">⚙️</span> Mode Selection</h2>
-        <p>Select a mode to begin remote control. This may disable physical controls.</p>
         <div class="button-group">
             <button id="mode-follow-button">Follow Mode</button>
             <button id="mode-pitch-button">Pitch Lock</button>
@@ -62,17 +62,17 @@
         <div>
           <label for="pan-slider">Pan</label>
           <input type="range" id="pan-slider" min="-1700" max="1700" value="0">
-          <span id="pan-value">0</span>°
+          <span id="pan-value">0.0</span>°
         </div>
         <div>
           <label for="tilt-slider">Tilt</label>
           <input type="range" id="tilt-slider" min="-900" max="900" value="0">
-          <span id="tilt-value">0</span>°
+          <span id="tilt-value">0.0</span>°
         </div>
         <div>
           <label for="roll-slider">Roll</label>
           <input type="range" id="roll-slider" min="-300" max="300" value="0">
-          <span id="roll-value">0</span>°
+          <span id="roll-value">0.0</span>°
         </div>
         <button id="reset-position-button" style="margin-top: 15px;">Reset Position</button>
       </div>
@@ -85,30 +85,6 @@
     </div>
   </div>
 
-<style>
-    .button-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-    #slider-controls div {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        margin-bottom: 10px;
-    }
-    #slider-controls label {
-        width: 50px;
-    }
-    #slider-controls input[type="range"] {
-        flex-grow: 1;
-    }
-    #slider-controls span {
-        width: 40px;
-        text-align: right;
-    }
-</style>
-
 <script>
     // --- Constants ---
     const NORDIC_UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
@@ -116,7 +92,8 @@
     const NORDIC_UART_TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
     const BLE_SET_INFORM_ID = 10;
-    const BLE_TARGET_LOCATION_ID = 13;
+    const BLE_PTZ_EXPECTED_POSTURE_ID = 12; // Velocity control
+    const BLE_TARGET_LOCATION_ID = 13;    // Position control
     const BLE_APP_PAN_HEARTBEAT_ID = 16;
 
     const BLE_START_1 = 0xEA;
@@ -148,11 +125,19 @@
     const rollValue = document.getElementById('roll-value');
     const resetPositionButton = document.getElementById('reset-position-button');
 
-    // --- BLE State ---
+    const startTrackingButton = document.getElementById('start-tracking-button');
+    const stopTrackingButton = document.getElementById('stop-tracking-button');
+    const videoFeed = document.getElementById('video-feed');
+    const trackingCanvas = document.getElementById('tracking-canvas');
+    const canvasCtx = trackingCanvas.getContext('2d');
+
+    // --- State ---
     let bluetoothDevice = null;
     let uartWriteChar = null;
     let pos_tran_value_counter = 0;
+    let expected_posture_value_counter = 0;
     let heartbeatTimer = null;
+    let trackingState = { stream: null, loopId: null, faceDetector: null };
 
     // --- CRC-16/CCITT-FALSE Calculation ---
     function crc16_ccitt_false(data) {
@@ -161,11 +146,7 @@
         for (const byte of data) {
             crc ^= byte << 8;
             for (let i = 0; i < 8; i++) {
-                if (crc & 0x8000) {
-                    crc = (crc << 1) ^ polynomial;
-                } else {
-                    crc <<= 1;
-                }
+                if (crc & 0x8000) { crc = (crc << 1) ^ polynomial; } else { crc <<= 1; }
             }
         }
         return crc & 0xFFFF;
@@ -198,34 +179,44 @@
         const commandId = BLE_TARGET_LOCATION_ID;
         const payload = new ArrayBuffer(12);
         const view = new DataView(payload);
-        view.setUint8(0, pos_tran_value_counter);
-        pos_tran_value_counter = (pos_tran_value_counter + 1) % 256;
+        view.setUint8(0, pos_tran_value_counter); pos_tran_value_counter = (pos_tran_value_counter + 1) % 256;
         view.setInt16(1, panAngle, true);
         view.setInt16(3, tiltAngle, true);
         view.setInt16(5, rollAngle, true);
         view.setInt16(7, 0, true);
-        view.setUint8(9, 0);
-        view.setUint8(10, 0);
-        view.setUint8(11, 0);
+        view.setUint8(9, 0); view.setUint8(10, 0); view.setUint8(11, 0);
+        return buildCommand(commandId, payload);
+    }
+
+    function buildPanExpectedPostureCommand(panSpeed, tiltSpeed, rollSpeed) {
+        const commandId = BLE_PTZ_EXPECTED_POSTURE_ID;
+        const payload = new ArrayBuffer(16);
+        const view = new DataView(payload);
+        view.setUint8(0, expected_posture_value_counter); expected_posture_value_counter = (expected_posture_value_counter + 1) % 256;
+        const packedFlags = (0 << 0) | (0 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
+        view.setUint8(1, packedFlags);
+        view.setInt16(2, 0, true); view.setInt16(4, 0, true); view.setInt16(6, 0, true);
+        view.setInt16(8, rollSpeed, true);
+        view.setInt16(10, tiltSpeed, true);
+        view.setInt16(12, panSpeed, true);
+        view.setInt16(14, 0, true);
         return buildCommand(commandId, payload);
     }
 
     function buildCenterGimbalCommand() {
         const commandId = BLE_SET_INFORM_ID;
-        const addressType = 36;
         const payload = new ArrayBuffer(3);
         const view = new DataView(payload);
-        view.setUint8(0, addressType);
+        view.setUint8(0, 36);
         view.setUint16(1, 0x0001, true);
         return buildCommand(commandId, payload);
     }
     
     function buildSetGimbalModeCommand(mode) {
         const commandId = BLE_SET_INFORM_ID;
-        const addressType = 12;
         const payload = new ArrayBuffer(5);
         const view = new DataView(payload);
-        view.setUint8(0, addressType);
+        view.setUint8(0, 12);
         view.setUint32(1, mode, true);
         return buildCommand(commandId, payload);
     }
@@ -256,39 +247,26 @@
     connectButton.addEventListener('click', async () => {
         log('Requesting device...');
         try {
-            bluetoothDevice = await navigator.bluetooth.requestDevice({
-                filters: [{ namePrefix: 'S1' }],
-                optionalServices: [NORDIC_UART_SERVICE_UUID]
-            });
-
+            bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'S1' }], optionalServices: [NORDIC_UART_SERVICE_UUID] });
             bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
             log('Connecting to GATT server...');
             const server = await bluetoothDevice.gatt.connect();
-
             log('Getting UART service...');
             const service = await server.getPrimaryService(NORDIC_UART_SERVICE_UUID);
-
             log('Getting characteristics...');
             uartWriteChar = await service.getCharacteristic(NORDIC_UART_RX_CHARACTERISTIC_UUID);
             const uartNotifyChar = await service.getCharacteristic(NORDIC_UART_TX_CHARACTERISTIC_UUID);
-
             log('Starting notifications...');
             await uartNotifyChar.startNotifications();
-            // Notifications are not parsed for now, but listener is kept for debugging
             uartNotifyChar.addEventListener('characteristicvaluechanged', (event) => {
                 const value = event.target.value;
                 let hex = Array.from(new Uint8Array(value.buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
                 log(`Received: ${hex}`);
             });
-            
             updateUIForConnection();
             log('Device connected. Select a mode to start.');
-
             log('Starting heartbeat...');
-            heartbeatTimer = setInterval(() => {
-                sendCommand(buildAppToPanCommand());
-            }, HEARTBEAT_INTERVAL);
-
+            heartbeatTimer = setInterval(() => { sendCommand(buildAppToPanCommand()); }, HEARTBEAT_INTERVAL);
         } catch (err) {
             log(`Connection Error: ${err}`);
             if (bluetoothDevice && bluetoothDevice.gatt.connected) bluetoothDevice.gatt.disconnect();
@@ -298,6 +276,7 @@
     disconnectButton.addEventListener('click', () => {
         if (bluetoothDevice && bluetoothDevice.gatt.connected) {
             log('Disconnecting...');
+            stopTracking();
             bluetoothDevice.gatt.disconnect();
         }
     });
@@ -306,21 +285,109 @@
         log('Device disconnected.');
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         heartbeatTimer = null;
+        stopTracking();
         updateUIForDisconnection();
         uartWriteChar = null;
         bluetoothDevice = null;
     }
 
-    // --- Control Logic ---
+    // --- Face Tracking Logic ---
+    async function startTracking() {
+        if (!('FaceDetector' in window)) {
+            log('Face Detector API not supported in this browser. Try Chrome.');
+            return;
+        }
+        try {
+            trackingState.stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } });
+            videoFeed.srcObject = trackingState.stream;
+            await videoFeed.play();
+
+            trackingCanvas.width = videoFeed.videoWidth;
+            trackingCanvas.height = videoFeed.videoHeight;
+            trackingState.faceDetector = new FaceDetector({ fastMode: true });
+            
+            startTrackingButton.disabled = true;
+            stopTrackingButton.disabled = false;
+            log('Face tracking started.');
+            trackingState.loopId = requestAnimationFrame(trackingLoop);
+        } catch (err) {
+            log(`Camera Error: ${err.name} - ${err.message}`);
+        }
+    }
+
+    function stopTracking() {
+        if (trackingState.loopId) cancelAnimationFrame(trackingState.loopId);
+        if (trackingState.stream) {
+            trackingState.stream.getTracks().forEach(track => track.stop());
+        }
+        videoFeed.srcObject = null;
+        canvasCtx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
+        startTrackingButton.disabled = false;
+        stopTrackingButton.disabled = true;
+        trackingState = { stream: null, loopId: null, faceDetector: null };
+        log('Face tracking stopped.');
+    }
+
+    async function trackingLoop() {
+        if (!trackingState.faceDetector) return;
+
+        const faces = await trackingState.faceDetector.detect(videoFeed);
+        canvasCtx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
+
+        if (faces.length > 0) {
+            // Find the largest face
+            const face = faces.reduce((a, b) => a.boundingBox.width > b.boundingBox.width ? a : b);
+            const box = face.boundingBox;
+
+            // Draw bounding box
+            canvasCtx.strokeStyle = 'lime';
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeRect(box.x, box.y, box.width, box.height);
+
+            // Control logic
+            const centerX = videoFeed.videoWidth / 2;
+            const centerY = videoFeed.videoHeight / 2;
+            const faceCenterX = box.x + box.width / 2;
+            const faceCenterY = box.y + box.height / 2;
+
+            const dx = faceCenterX - centerX;
+            const dy = faceCenterY - centerY;
+
+            // Proportional control (P-controller)
+            const P_GAIN_PAN = -5; // Negative gain to move left when face is on the right
+            const P_GAIN_TILT = 5; // Positive gain to move up when face is below center
+            
+            let panSpeed = Math.trunc(dx * P_GAIN_PAN);
+            let tiltSpeed = Math.trunc(dy * P_GAIN_TILT);
+
+            // Clamp speeds to a reasonable range
+            const MAX_SPEED = 2000;
+            panSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, panSpeed));
+            tiltSpeed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, tiltSpeed));
+
+            const command = buildPanExpectedPostureCommand(panSpeed, tiltSpeed, 0);
+            sendCommand(command);
+
+        } else {
+            // No face detected, stop movement
+            const command = buildPanExpectedPostureCommand(0, 0, 0);
+            sendCommand(command);
+        }
+
+        trackingState.loopId = requestAnimationFrame(trackingLoop);
+    }
+
+    startTrackingButton.addEventListener('click', startTracking);
+    stopTrackingButton.addEventListener('click', stopTracking);
+
+    // --- Manual Control Logic ---
     function onSliderChange() {
         const pan = parseInt(panSlider.value, 10);
         const tilt = parseInt(tiltSlider.value, 10);
         const roll = parseInt(rollSlider.value, 10);
-
         panValue.textContent = (pan / 10).toFixed(1);
         tiltValue.textContent = (tilt / 10).toFixed(1);
         rollValue.textContent = (roll / 10).toFixed(1);
-
         const command = buildParsePositionCommand(pan, tilt, roll);
         sendCommand(command);
     }
@@ -332,26 +399,13 @@
     resetPositionButton.addEventListener('click', () => {
         log('Sending Center Gimbal command...');
         sendCommand(buildCenterGimbalCommand(), true);
-        panSlider.value = 0;
-        tiltSlider.value = 0;
-        rollSlider.value = 0;
-        panValue.textContent = '0.0';
-        tiltValue.textContent = '0.0';
-        rollValue.textContent = '0.0';
+        panSlider.value = 0; tiltSlider.value = 0; rollSlider.value = 0;
+        panValue.textContent = '0.0'; tiltValue.textContent = '0.0'; rollValue.textContent = '0.0';
     });
 
-    modeFollowButton.addEventListener('click', () => {
-        log('Setting mode to Follow (0)');
-        sendCommand(buildSetGimbalModeCommand(0), true);
-    });
-    modePitchButton.addEventListener('click', () => {
-        log('Setting mode to Pitch Lock (1)');
-        sendCommand(buildSetGimbalModeCommand(1), true);
-    });
-    modeFpvButton.addEventListener('click', () => {
-        log('Setting mode to FPV (2)');
-        sendCommand(buildSetGimbalModeCommand(2), true);
-    });
+    modeFollowButton.addEventListener('click', () => { log('Setting mode to Follow (0)'); sendCommand(buildSetGimbalModeCommand(0), true); });
+    modePitchButton.addEventListener('click', () => { log('Setting mode to Pitch Lock (1)'); sendCommand(buildSetGimbalModeCommand(1), true); });
+    modeFpvButton.addEventListener('click', () => { log('Setting mode to FPV (2)'); sendCommand(buildSetGimbalModeCommand(2), true); });
 
     // --- UI & Logging ---
     clearLogButton.addEventListener('click', () => { logArea.value = ''; });
