@@ -561,6 +561,27 @@ function log(msg) {
   console.log(msg);
 }
 
+function buildReleaseControlCommand() {
+  const commandId = BLE_SET_INFORM_ID;
+  const payload = new ArrayBuffer(3);
+  const view = new DataView(payload);
+  view.setUint8(0, 37); // release control (推定値、他のアプリのデータから)
+  view.setUint16(1, 0x0001, true);
+  return buildCommand(commandId, payload);
+}
+
+disconnectButton.addEventListener('click', () => {
+  if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+    log('Releasing gimbal control before disconnect...');
+    sendCommand(buildReleaseControlCommand(), true);
+    setTimeout(() => {
+      log('Disconnecting...');
+      stopTracking();
+      bluetoothDevice.gatt.disconnect();
+    }, 300);
+  }
+});
+
 /* =========================
    Init UI from CALIB
    ========================= */
