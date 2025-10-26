@@ -589,7 +589,7 @@ function buildReleaseControlCommand() {
   const commandId = BLE_SET_INFORM_ID; // 既存の定数を利用
   const payload = new ArrayBuffer(3);
   const view = new DataView(payload);
-  view.setUint8(0, 37);       // 推定: "release control" コマンドID
+  view.setUint8(0, 38);       // 推定: "release control" コマンドID
   view.setUint16(1, 0x0001, true); // データ部（固定値）
   return buildCommand(commandId, payload);
 }
