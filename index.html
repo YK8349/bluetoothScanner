@@ -46,27 +46,24 @@
     </div>
 
     <div class="control-group" id="main-controls" style="display: none;">
-      <h2><span style="font-size: 1.2em;">🕹️</span> Controls</h2>
-      <div class="controls-grid">
-        <div class="d-pad">
-          <button id="up-button" data-command="ea550d0a135c2301000000d85e" data-hold-command="ea550d0a135c2303000000b0b3" data-repeatable="true">▲</button>
-          <button id="left-button" data-command="ea550d0a135c2310000000cb33" data-hold-command="ea550d0a135c23300000008504" data-repeatable="true">◀</button>
-          <button id="center-button" data-command="ea550d0a135c23000010001f2b" data-hold-command="ea550d0a135c230000f000ad3b" data-repeatable="true" style="grid-area: center;">Push</button>
-          <button id="right-button" data-command="ea550d0a135c2340000000f046" data-hold-command="ea550d0a135c23c0000000c89b" data-repeatable="true">▶</button>
-          <button id="down-button" data-command="ea550d0a135c23040000009de2" data-hold-command="ea550d0a135c230c0000005e67" data-repeatable="true">▼</button>
+      <h2><span style="font-size: 1.2em;">🕹️</span> Angle Controls</h2>
+      <div id="slider-controls">
+        <div>
+          <label for="pan-slider">Pan</label>
+          <input type="range" id="pan-slider" min="-1700" max="1700" value="0">
+          <span id="pan-value">0</span>°
         </div>
-
-        <div class="action-buttons">
-          <button id="record-button" data-command="ea550d0a135c23001000000f6b" data-hold-command="ea550d0a135c2300f000003ecb" data-release-command="ea550d0a135c2300e000005d88">Record</button>
-          <button id="orientation-button" data-command="ea550d0a135c23000002000e4e">Toggle Orientation</button>
-          <button id="reset-button" data-command="ea550d0a135c23000020008a2e,ea550d0a139c0c804c060162f4">Reset Position</button>
-          <button id="power-button" data-command="ea550d0a135c23000001005d1b">Power</button>
+        <div>
+          <label for="tilt-slider">Tilt</label>
+          <input type="range" id="tilt-slider" min="-900" max="900" value="0">
+          <span id="tilt-value">0</span>°
         </div>
-
-        <div class="zoom-buttons">
-          <button id="zoom-in-button" data-command="ea550d0a135c2300040000acf4" data-hold-command="ea550d0a135c23000c00000d5d" data-release-command="ea550d0a135c2300080000cd81" data-repeatable="true">Zoom In (+)</button>
-          <button id="zoom-out-button" data-command="ea550d0a135c23000100005c1f" data-hold-command="ea550d0a135c23000300003c71" data-release-command="ea550d0a135c23000200000c46" data-repeatable="true">Zoom Out (-)</button>
+        <div>
+          <label for="roll-slider">Roll</label>
+          <input type="range" id="roll-slider" min="-300" max="300" value="0">
+          <span id="roll-value">0</span>°
         </div>
+        <button id="reset-position-button" style="margin-top: 15px;">Reset Position</button>
       </div>
     </div>
 
@@ -77,18 +74,36 @@
     </div>
   </div>
 
+<style>
+    /* Add styles for new slider controls */
+    #slider-controls div {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+    #slider-controls label {
+        width: 50px;
+    }
+    #slider-controls input[type="range"] {
+        flex-grow: 1;
+    }
+    #slider-controls span {
+        width: 40px;
+        text-align: right;
+    }
+</style>
+
 <script>
-    // --- Constants from analysis ---
+    // --- Constants ---
     const NORDIC_UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
     const NORDIC_UART_RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
     const NORDIC_UART_TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
-    // Command IDs
     const BLE_SET_INFORM_ID = 10;
-    const BLE_PTZ_EXPECTED_POSTURE_ID = 12;
+    const BLE_TARGET_LOCATION_ID = 13; // Using Absolute Position Command
     const BLE_APP_PAN_HEARTBEAT_ID = 16;
 
-    // Header fields
     const BLE_START_1 = 0xEA;
     const BLE_START_2 = 0x55;
     const OPERATION_TYPE = 1;
@@ -96,8 +111,7 @@
     const INFORM_SEND_ID = 7;
     const INFORM_RECEIVE_ID = 1;
 
-    const SPEED = 1000; // Movement speed
-    const HEARTBEAT_INTERVAL = 5000; // 5 seconds
+    const HEARTBEAT_INTERVAL = 5000;
 
     // --- UI Elements ---
     const connectButton = document.getElementById('connect-button');
@@ -106,19 +120,19 @@
     const logArea = document.getElementById('log-area');
     const clearLogButton = document.getElementById('clear-log-button');
     const mainControls = document.getElementById('main-controls');
+    const panSlider = document.getElementById('pan-slider');
+    const tiltSlider = document.getElementById('tilt-slider');
+    const rollSlider = document.getElementById('roll-slider');
+    const panValue = document.getElementById('pan-value');
+    const tiltValue = document.getElementById('tilt-value');
+    const rollValue = document.getElementById('roll-value');
+    const resetPositionButton = document.getElementById('reset-position-button');
 
     // --- BLE State ---
     let bluetoothDevice = null;
     let uartWriteChar = null;
-    let expected_posture_value_counter = 0;
+    let pos_tran_value_counter = 0;
     let heartbeatTimer = null;
-
-    // --- Long Press State ---
-    let pressTimer = null;
-    let repeatIntervalTimer = null;
-    let activeDirection = null; // 'up', 'down', 'left', 'right'
-    const LONG_PRESS_DURATION = 250; // ms
-    const REPEAT_INTERVAL = 150; // ms
 
     // --- CRC-16/CCITT-FALSE Calculation ---
     function crc16_ccitt_false(data) {
@@ -160,31 +174,33 @@
         return finalCommand;
     }
 
-    function buildPanExpectedPostureCommand(panSpeed, tiltSpeed, rollSpeed) {
-        const commandId = BLE_PTZ_EXPECTED_POSTURE_ID;
-        const payload = new ArrayBuffer(16);
+    function buildParsePositionCommand(panAngle, tiltAngle, rollAngle) {
+        const commandId = BLE_TARGET_LOCATION_ID;
+        const payload = new ArrayBuffer(12);
         const view = new DataView(payload);
-        view.setUint8(0, expected_posture_value_counter);
-        expected_posture_value_counter = (expected_posture_value_counter + 1) % 256;
-        const packedFlags = (0 << 0) | (0 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5);
-        view.setUint8(1, packedFlags);
-        view.setInt16(2, 0, true);
-        view.setInt16(4, 0, true);
-        view.setInt16(6, 0, true);
-        view.setInt16(8, rollSpeed, true);
-        view.setInt16(10, tiltSpeed, true);
-        view.setInt16(12, panSpeed, true);
-        view.setInt16(14, 0, true);
+
+        view.setUint8(0, pos_tran_value_counter);
+        pos_tran_value_counter = (pos_tran_value_counter + 1) % 256;
+
+        view.setInt16(1, panAngle, true);
+        view.setInt16(3, tiltAngle, true);
+        view.setInt16(5, rollAngle, true);
+        view.setInt16(7, 0, true); // Placeholder
+
+        view.setUint8(9, 0); // Packed flags
+        view.setUint8(10, 0); // Packed flags
+        view.setUint8(11, 0); // Reserved
+
         return buildCommand(commandId, payload);
     }
     
     function buildSetGimbalModeCommand(mode) {
         const commandId = BLE_SET_INFORM_ID;
-        const addressType = 12; // PV_GIM_PARM_SET
+        const addressType = 12;
         const payload = new ArrayBuffer(5);
         const view = new DataView(payload);
         view.setUint8(0, addressType);
-        view.setUint32(1, mode, true); // mode 0 = Follow Mode
+        view.setUint32(1, mode, true);
         return buildCommand(commandId, payload);
     }
 
@@ -192,19 +208,16 @@
         const commandId = BLE_APP_PAN_HEARTBEAT_ID;
         const payload = new ArrayBuffer(12);
         const view = new DataView(payload);
-        view.setUint32(0, Date.now(), true); // systemTime
-        view.setUint16(4, 0, true); // packedFlags
-        view.setUint16(6, 0, true); // packedMode
-        view.setUint32(8, 0, true); // reserved
+        view.setUint32(0, Date.now(), true);
+        view.setUint16(4, 0, true);
+        view.setUint16(6, 0, true);
+        view.setUint32(8, 0, true);
         return buildCommand(commandId, payload);
     }
 
     // --- BLE Send/Receive ---
     async function sendCommand(commandBytes, logIt = false) {
-        if (!uartWriteChar) {
-            log('Cannot send command: Not connected.');
-            return;
-        }
+        if (!uartWriteChar) return;
         try {
             await uartWriteChar.writeValueWithoutResponse(commandBytes);
             if(logIt) log(`Sent: ${Array.from(commandBytes).map(b => b.toString(16).padStart(2, '0')).join('')}`);
@@ -249,14 +262,11 @@
             updateUIForConnection();
             log('Device configured. Ready for control.');
 
-            // *** FIX: Set gimbal mode to Follow (0) to prevent returning to center ***
             log('Setting gimbal to Follow Mode...');
             await sendCommand(buildSetGimbalModeCommand(0), true);
 
-            // *** FIX: Start heartbeat to prevent disconnection ***
             log('Starting heartbeat...');
             heartbeatTimer = setInterval(() => {
-                // log('Sending heartbeat...');
                 sendCommand(buildAppToPanCommand());
             }, HEARTBEAT_INTERVAL);
 
@@ -280,69 +290,32 @@
         updateUIForDisconnection();
         uartWriteChar = null;
         bluetoothDevice = null;
-        activeDirection = null;
-        cancelAllPressTimers();
     }
 
-    // --- Button Press Logic (Long Press / Tap) ---
-    function startPress(direction) {
-        if (!direction || activeDirection) return;
-        cancelAllPressTimers();
-        activeDirection = direction;
-        sendMovementCommand(direction);
-        pressTimer = setTimeout(() => {
-            log(`Long press start: ${direction}`);
-            repeatIntervalTimer = setInterval(() => {
-                sendMovementCommand(direction);
-            }, REPEAT_INTERVAL);
-        }, LONG_PRESS_DURATION);
-    }
+    // --- Slider Control Logic ---
+    function onSliderChange() {
+        const pan = parseInt(panSlider.value, 10);
+        const tilt = parseInt(tiltSlider.value, 10);
+        const roll = parseInt(rollSlider.value, 10);
 
-    function endPress() {
-        if (!activeDirection) return;
-        cancelAllPressTimers();
-        log(`Press ended: ${activeDirection}`);
-        activeDirection = null;
-        // const stopCommand = buildPanExpectedPostureCommand(0, 0, 0);
-        // sendCommand(stopCommand);
-    }
-    
-    function sendMovementCommand(direction) {
-        let pan = 0, tilt = 0;
-        switch (direction) {
-            case 'up':    tilt = SPEED;  break;
-            case 'down':  tilt = -SPEED; break;
-            case 'left':  pan = SPEED;  break;
-            case 'right': pan = -SPEED;   break;
-        }
-        const command = buildPanExpectedPostureCommand(pan, tilt, 0);
+        panValue.textContent = (pan / 10).toFixed(1);
+        tiltValue.textContent = (tilt / 10).toFixed(1);
+        rollValue.textContent = (roll / 10).toFixed(1);
+
+        const command = buildParsePositionCommand(pan, tilt, roll);
         sendCommand(command);
     }
 
-    function cancelAllPressTimers() {
-        clearTimeout(pressTimer);
-        clearInterval(repeatIntervalTimer);
-        pressTimer = null;
-        repeatIntervalTimer = null;
-    }
+    panSlider.addEventListener('input', onSliderChange);
+    tiltSlider.addEventListener('input', onSliderChange);
+    rollSlider.addEventListener('input', onSliderChange);
 
-    // --- Event Listeners ---
-    document.getElementById('up-button').addEventListener('pointerdown', () => startPress('up'));
-    document.getElementById('down-button').addEventListener('pointerdown', () => startPress('down'));
-    document.getElementById('left-button').addEventListener('pointerdown', () => startPress('left'));
-    document.getElementById('right-button').addEventListener('pointerdown', () => startPress('right'));
-    document.addEventListener('pointerup', endPress);
-    document.addEventListener('pointercancel', endPress);
-    mainControls.addEventListener('pointerleave', endPress);
-
-    // Other buttons are not implemented based on the analyzed code
-    document.getElementById('center-button').addEventListener('click', () => log("Center command not implemented."));
-    document.getElementById('record-button').addEventListener('click', () => log("Record command not implemented."));
-    document.getElementById('orientation-button').addEventListener('click', () => log("Orientation command not implemented."));
-    document.getElementById('reset-button').addEventListener('click', () => buildPanExpectedPostureCommand(0, 0, 0));
-    document.getElementById('power-button').addEventListener('click', () => log("Power command not implemented."));
-    document.getElementById('zoom-in-button').addEventListener('click', () => log("Zoom In command not implemented."));
-    document.getElementById('zoom-out-button').addEventListener('click', () => log("Zoom Out command not implemented."));
+    resetPositionButton.addEventListener('click', () => {
+        panSlider.value = 0;
+        tiltSlider.value = 0;
+        rollSlider.value = 0;
+        onSliderChange(); // Trigger update to send reset command
+    });
 
     // --- UI & Logging ---
     clearLogButton.addEventListener('click', () => { logArea.value = ''; });
@@ -365,11 +338,10 @@
 
     function log(msg) {
         const ts = new Date().toLocaleTimeString();
-        logArea.value += `[${ts}] ${msg}
-`;
+        logArea.value += `[${ts}] ${msg}\n`;
         logArea.scrollTop = logArea.scrollHeight;
         console.log(msg);
     }
-  </script>
+</script>
 </body>
 </html>
