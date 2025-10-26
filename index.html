@@ -46,6 +46,17 @@
     </div>
 
     <div class="control-group" id="main-controls" style="display: none;">
+      
+      <div id="mode-controls" style="margin-bottom: 20px;">
+        <h2><span style="font-size: 1.2em;">⚙️</span> Mode Selection</h2>
+        <p>Select a mode to begin remote control. This may disable physical controls.</p>
+        <div class="button-group">
+            <button id="mode-follow-button">Follow Mode</button>
+            <button id="mode-pitch-button">Pitch Lock</button>
+            <button id="mode-fpv-button">FPV Mode</button>
+        </div>
+      </div>
+
       <h2><span style="font-size: 1.2em;">🕹️</span> Angle Controls</h2>
       <div id="slider-controls">
         <div>
@@ -75,7 +86,11 @@
   </div>
 
 <style>
-    /* Add styles for new slider controls */
+    .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
     #slider-controls div {
         display: flex;
         align-items: center;
@@ -101,7 +116,7 @@
     const NORDIC_UART_TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
     const BLE_SET_INFORM_ID = 10;
-    const BLE_TARGET_LOCATION_ID = 13; // Using Absolute Position Command
+    const BLE_TARGET_LOCATION_ID = 13;
     const BLE_APP_PAN_HEARTBEAT_ID = 16;
 
     const BLE_START_1 = 0xEA;
@@ -120,6 +135,11 @@
     const logArea = document.getElementById('log-area');
     const clearLogButton = document.getElementById('clear-log-button');
     const mainControls = document.getElementById('main-controls');
+    
+    const modeFollowButton = document.getElementById('mode-follow-button');
+    const modePitchButton = document.getElementById('mode-pitch-button');
+    const modeFpvButton = document.getElementById('mode-fpv-button');
+
     const panSlider = document.getElementById('pan-slider');
     const tiltSlider = document.getElementById('tilt-slider');
     const rollSlider = document.getElementById('roll-slider');
@@ -178,19 +198,25 @@
         const commandId = BLE_TARGET_LOCATION_ID;
         const payload = new ArrayBuffer(12);
         const view = new DataView(payload);
-
         view.setUint8(0, pos_tran_value_counter);
         pos_tran_value_counter = (pos_tran_value_counter + 1) % 256;
-
         view.setInt16(1, panAngle, true);
         view.setInt16(3, tiltAngle, true);
         view.setInt16(5, rollAngle, true);
-        view.setInt16(7, 0, true); // Placeholder
+        view.setInt16(7, 0, true);
+        view.setUint8(9, 0);
+        view.setUint8(10, 0);
+        view.setUint8(11, 0);
+        return buildCommand(commandId, payload);
+    }
 
-        view.setUint8(9, 0); // Packed flags
-        view.setUint8(10, 0); // Packed flags
-        view.setUint8(11, 0); // Reserved
-
+    function buildCenterGimbalCommand() {
+        const commandId = BLE_SET_INFORM_ID;
+        const addressType = 36;
+        const payload = new ArrayBuffer(3);
+        const view = new DataView(payload);
+        view.setUint8(0, addressType);
+        view.setUint16(1, 0x0001, true);
         return buildCommand(commandId, payload);
     }
     
@@ -226,15 +252,6 @@
         }
     }
 
-    function handleNotifications(event) {
-        const value = event.target.value;
-        let hex = '';
-        for (let i = 0; i < value.byteLength; i++) {
-            hex += value.getUint8(i).toString(16).padStart(2, '0');
-        }
-        log(`Received: ${hex}`);
-    }
-
     // --- Connection Logic ---
     connectButton.addEventListener('click', async () => {
         log('Requesting device...');
@@ -257,13 +274,15 @@
 
             log('Starting notifications...');
             await uartNotifyChar.startNotifications();
-            uartNotifyChar.addEventListener('characteristicvaluechanged', handleNotifications);
+            // Notifications are not parsed for now, but listener is kept for debugging
+            uartNotifyChar.addEventListener('characteristicvaluechanged', (event) => {
+                const value = event.target.value;
+                let hex = Array.from(new Uint8Array(value.buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+                log(`Received: ${hex}`);
+            });
             
             updateUIForConnection();
-            log('Device configured. Ready for control.');
-
-            log('Setting gimbal to Follow Mode...');
-            await sendCommand(buildSetGimbalModeCommand(0), true);
+            log('Device connected. Select a mode to start.');
 
             log('Starting heartbeat...');
             heartbeatTimer = setInterval(() => {
@@ -292,7 +311,7 @@
         bluetoothDevice = null;
     }
 
-    // --- Slider Control Logic ---
+    // --- Control Logic ---
     function onSliderChange() {
         const pan = parseInt(panSlider.value, 10);
         const tilt = parseInt(tiltSlider.value, 10);
@@ -311,10 +330,27 @@
     rollSlider.addEventListener('input', onSliderChange);
 
     resetPositionButton.addEventListener('click', () => {
+        log('Sending Center Gimbal command...');
+        sendCommand(buildCenterGimbalCommand(), true);
         panSlider.value = 0;
         tiltSlider.value = 0;
         rollSlider.value = 0;
-        onSliderChange(); // Trigger update to send reset command
+        panValue.textContent = '0.0';
+        tiltValue.textContent = '0.0';
+        rollValue.textContent = '0.0';
+    });
+
+    modeFollowButton.addEventListener('click', () => {
+        log('Setting mode to Follow (0)');
+        sendCommand(buildSetGimbalModeCommand(0), true);
+    });
+    modePitchButton.addEventListener('click', () => {
+        log('Setting mode to Pitch Lock (1)');
+        sendCommand(buildSetGimbalModeCommand(1), true);
+    });
+    modeFpvButton.addEventListener('click', () => {
+        log('Setting mode to FPV (2)');
+        sendCommand(buildSetGimbalModeCommand(2), true);
     });
 
     // --- UI & Logging ---
